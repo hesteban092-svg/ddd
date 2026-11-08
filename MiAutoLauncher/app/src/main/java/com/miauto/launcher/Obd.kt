@@ -122,8 +122,8 @@ object Obd {
             if (p.size >= 4) Pid(p[0].uppercase(), p[1].uppercase(), p[2].uppercase(), p[3]) else null
         }
 
-    private fun notifyAll() = listeners.toList().forEach { it() }
-    private fun setStatus(s: String) { status = s; notifyAll() }
+    private fun fireUpdate() = listeners.toList().forEach { it() }
+    private fun publish(s: String) { status = s; fireUpdate() }
 
     fun stop() {
         running = false
@@ -137,17 +137,17 @@ object Obd {
         val type = Prefs.elmType(app)
         val target = Prefs.elmTarget(app)
         val pids = parse(Prefs.pids(app))
-        if (pids.isEmpty()) { setStatus("ELM: sin PIDs"); return }
-        if (type == "wifi" && target.isBlank()) { setStatus("ELM: sin configurar"); return }
+        if (pids.isEmpty()) { publish("ELM: sin PIDs"); return }
+        if (type == "wifi" && target.isBlank()) { publish("ELM: sin configurar"); return }
         running = true
         thread = Thread {
             while (running) {
                 val link = ElmLink()
                 try {
-                    setStatus("ELM: conectando…")
+                    publish("ELM: conectando…")
                     link.open(type, target)
                     for (c in listOf("ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATSP0")) link.send(c)
-                    setStatus("ELM: conectado")
+                    publish("ELM: conectado")
                     var header = ""
                     while (running) {
                         for (p in pids) {
@@ -157,13 +157,13 @@ object Obd {
                             }
                             values[p.name] = decode(p, link.send(p.cmd))
                         }
-                        notifyAll()
+                        fireUpdate()
                         Thread.sleep(1500)
                     }
                 } catch (e: InterruptedException) {
                     break
                 } catch (e: Exception) {
-                    setStatus("ELM: sin conexión (reintentando)")
+                    publish("ELM: sin conexión (reintentando)")
                     try { Thread.sleep(5000) } catch (_: InterruptedException) { break }
                 } finally {
                     link.close()
